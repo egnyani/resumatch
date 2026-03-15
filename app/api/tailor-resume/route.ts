@@ -114,13 +114,16 @@ TYPE A — SKILLS SECTION (use 3-4 of your modifications here, highest ROI):
     replaceText: "MySQL, Node.js, Next.js, Express.js, ReactJS, Jenkins, GraphQL, Apache Kafka, Git, Linux, Oracle, Postgres, Spark, Airflow, Flink."
 
 TYPE B — BULLET POINT TERM SWAP (replace one tech name/phrase with a richer equivalent):
-  findText must be a complete, meaningful technical phrase (a tool name, library, or architecture term).
-  replaceText swaps it for a keyword-enriched equivalent of similar length.
+  findText must be a short standalone tech phrase (a tool name, library, stack name, or pattern).
+  replaceText SUBSTITUTES it with a keyword-enriched equivalent — same grammatical role, similar length.
   ✅ GOOD: findText "Flask/Django" → replaceText "Flask/Django/FastAPI"
-  ✅ GOOD: findText "CI/CD pipelines" → replaceText "CI/CD pipelines with GitHub Actions and Terraform"
-  ❌ BAD:  findText "systems and AI automation" → inserting a keyword between "and" and "AI" — this creates incoherent text
+  ✅ GOOD: findText "REST APIs" → replaceText "REST and GraphQL APIs"
+  ✅ GOOD: findText "microservices" → replaceText "microservices and event-driven architecture"
+  ❌ BAD:  findText "Spring Boot, Redis, Kafka, Hugging Face Transformers" → appending ", and distributed systems" — this is a bullet tech stack, NOT a Skills line; do NOT append to it
+  ❌ BAD:  findText "FastAPI, React.js, Azure SQL, Docker)" → appending " with co-design integration" — appending after ) is FORBIDDEN
+  ❌ BAD:  findText "systems and AI automation" → inserting a keyword between bridging words — creates incoherent text
   ❌ BAD:  Any findText that is just bridging words like "and", "with", "using", "through"
-  ❌ BAD:  Any modification that appends a clause AFTER a sentence ending in a period or percentage
+  ❌ BAD:  Any modification that appends a clause AFTER a sentence-ending period, metric, or closing parenthesis
 
 ══════════════════════════════════════════
 HARD CONSTRAINTS
@@ -192,11 +195,26 @@ function selectCompactModifications(
       const replaceWordCount = getWordCount(item.replaceText);
       const addedWords = replaceWordCount - findWordCount;
 
-      // Reject clause-appending: if findText ends a sentence (period/digit) and
-      // replaceText is strictly longer, the LLM is tacking on extra content.
       const findTrimmed = item.findText.trimEnd();
-      const isFinishedSentence = /[.%]$|\d+$/.test(findTrimmed);
-      if (isFinishedSentence && addedWords > 2) return false;
+      const replaceTrimmed = item.replaceText.trimEnd();
+
+      // ── Guard 1: clause-appending after finished phrases ────────────────────
+      // Reject if findText ends a sentence/metric (period, %, digit, or closing paren).
+      const isFinishedPhrase = /[.%)]$|\d+$/.test(findTrimmed);
+      if (isFinishedPhrase && addedWords > 2) return false;
+
+      // ── Guard 2: pure-append onto bullet-point tech stacks ───────────────────
+      // If replaceText is literally findText + a suffix, the model is appending,
+      // not substituting. This is fine for Skills section lines (dense comma lists
+      // with 4+ commas = 5+ items), but NOT for bullet-point tech stacks.
+      // Patterns like "..., and X" or "...) with X" on short/medium lists are blocked.
+      const isPureAppend = replaceTrimmed.startsWith(findTrimmed);
+      if (isPureAppend && addedWords > 2) {
+        const commaCount = (findTrimmed.match(/,/g) ?? []).length;
+        // Skills section lines have 4+ commas (5+ items); bullet tech stacks have fewer.
+        const isSkillsListLine = commaCount >= 4;
+        if (!isSkillsListLine) return false;
+      }
 
       // Allow keyword swaps (addedWords can be negative) and additions up to the per-mod limit
       return (
