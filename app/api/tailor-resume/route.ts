@@ -469,8 +469,6 @@ export async function POST(request: Request) {
       tailoredScore = scoreKeywordMatch(modifiedResume.text, keywordList);
     }
 
-    const pdfBuffer = await convertDocxToPdfBuffer(modifiedBuffer, resume.name);
-
     const result: TailoringResult = {
       originalScore,
       tailoredScore,
@@ -482,8 +480,15 @@ export async function POST(request: Request) {
         updatedText: item.replaceText,
       })),
       tailoredDocxBase64: docxToBase64(modifiedBuffer),
-      tailoredPdfBase64: docxToBase64(pdfBuffer),
+      tailoredPdfBase64: "",
     };
+
+    try {
+      const pdfBuffer = await convertDocxToPdfBuffer(modifiedBuffer, resume.name);
+      result.tailoredPdfBase64 = docxToBase64(pdfBuffer);
+    } catch {
+      result.tailoredPdfBase64 = "";
+    }
 
     return NextResponse.json(result);
   } catch (error) {

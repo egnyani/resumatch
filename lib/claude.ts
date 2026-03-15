@@ -64,6 +64,8 @@ async function generateWithOpenAI(
     throw new Error("OPENAI_API_KEY is not configured.");
   }
 
+  const modelName = process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
+
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -71,7 +73,7 @@ async function generateWithOpenAI(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
+      model: modelName,
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },

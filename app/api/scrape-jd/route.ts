@@ -40,22 +40,7 @@ function extractReadableText(html: string) {
   $("script, style, nav, header, footer, noscript, svg").remove();
   $("[hidden], [aria-hidden='true']").remove();
 
-  const selectors = [
-    '[data-testid*="job-description"]',
-    '[data-qa*="job-description"]',
-    '[id*="job-description"]',
-    '[id*="description"]',
-    '[class*="job-description"]',
-    '[class*="description"]',
-    '[class*="content"]',
-    '[class*="posting"]',
-    '[role="main"]',
-    "main",
-    "article",
-    "body",
-  ];
-
-  for (const selector of selectors) {
+  for (const selector of JOB_SELECTORS) {
     const text = normalizeWhitespace($(selector).first().text()).slice(0, 20_000);
     if (text.length >= 200) {
       return text;
@@ -133,41 +118,73 @@ function extractTextFromStructuredData(html: string) {
   return descriptions.sort((left, right) => right.length - left.length)[0] || "";
 }
 
+const JOB_SELECTORS = [
+  // Greenhouse
+  "#content",
+  ".job-post",
+  // Lever
+  ".posting-headline",
+  ".section-wrapper",
+  // Workday
+  '[data-automation-id="jobPostingDescription"]',
+  '[data-automation-id="job-posting-details"]',
+  // Ashby
+  '[data-testid="job-description"]',
+  // SmartRecruiters
+  ".job-description",
+  // LinkedIn (rarely works without login, but worth trying)
+  ".description__text",
+  ".show-more-less-html__markup",
+  // Indeed
+  "#jobDescriptionText",
+  ".jobsearch-jobDescriptionText",
+  // Glassdoor
+  '[class*="JobDetails"]',
+  '[class*="jobDescription"]',
+  // Generic
+  '[data-testid*="job-description"]',
+  '[data-qa*="job-description"]',
+  '[id*="job-description"]',
+  '[id*="description"]',
+  '[class*="job-description"]',
+  '[class*="description"]',
+  '[class*="posting"]',
+  '[class*="content"]',
+  '[role="main"]',
+  "main",
+  "article",
+  "body",
+];
+
 async function renderJobPage(url: string) {
   const browser = await launchHeadlessBrowser();
 
   try {
     const page = await browser.newPage();
+
     await page.setUserAgent(
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     );
-    await page.goto(url, {
-      waitUntil: "networkidle2",
-      timeout: 15_000,
+    await page.setExtraHTTPHeaders({
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
     });
 
-    await page.waitForSelector("body", { timeout: 5_000 });
-    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    await page.goto(url, {
+      waitUntil: "domcontentloaded",
+      timeout: 18_000,
+    });
 
-    const text = await page.evaluate(() => {
+    // Wait for body, then give JS a moment to hydrate.
+    await page.waitForSelector("body", { timeout: 5_000 }).catch(() => null);
+    await new Promise((resolve) => setTimeout(resolve, 2_500));
+
+    const selectors = JOB_SELECTORS;
+
+    const text = await page.evaluate((sels) => {
       document.querySelectorAll("script, style, nav, header, footer, noscript, svg").forEach((node) => node.remove());
 
-      const selectors = [
-        '[data-testid*="job-description"]',
-        '[data-qa*="job-description"]',
-        '[id*="job-description"]',
-        '[id*="description"]',
-        '[class*="job-description"]',
-        '[class*="description"]',
-        '[class*="content"]',
-        '[class*="posting"]',
-        '[role="main"]',
-        "main",
-        "article",
-        "body",
-      ];
-
-      for (const selector of selectors) {
+      for (const selector of sels) {
         const element = document.querySelector(selector) as HTMLElement | null;
         const value = element?.innerText?.replace(/\s+/g, " ").trim();
         if (value && value.length >= 200) {
@@ -176,7 +193,7 @@ async function renderJobPage(url: string) {
       }
 
       return "";
-    });
+    }, selectors);
 
     return text;
   } finally {
@@ -247,6 +264,37 @@ function deriveJobDescriptionFallback(rawText: string, url: string): Omit<JobDes
   };
 }
 
+const FETCH_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Cache-Control": "no-cache",
+};
+
+async function fetchHtml(url: string): Promise<string | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+
+  try {
+    const response = await fetch(url, {
+      headers: FETCH_HEADERS,
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      return null; // Caller will fall back to browser rendering.
+    }
+
+    return await response.text();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const { url } = (await request.json()) as { url?: string };
@@ -259,53 +307,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid URL. Please enter a valid http or https URL." }, { status: 400 });
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
+    let text = "";
 
-    let html: string;
-    try {
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9",
-        },
-        cache: "no-store",
-        signal: controller.signal,
-      });
+    // Step 1 – plain fetch (fast, no JS execution).
+    const html = await fetchHtml(url);
+    if (html) {
+      text = extractReadableText(html);
 
-      if (!response.ok) {
-        return NextResponse.json(
-          {
-            error:
-              "Could not access this URL. Try pasting the job description text directly instead.",
-          },
-          { status: 400 }
-        );
-      }
-
-      html = await response.text();
-    } catch {
-      return NextResponse.json(
-        {
-          error: "Could not access this URL. Try pasting the job description text directly instead.",
-        },
-        { status: 400 }
-      );
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    let text = extractReadableText(html);
-
-    if (text.length < 200) {
-      const structuredText = extractTextFromStructuredData(html);
-      if (structuredText.length > text.length) {
-        text = structuredText;
+      if (text.length < 200) {
+        const structuredText = extractTextFromStructuredData(html);
+        if (structuredText.length > text.length) {
+          text = structuredText;
+        }
       }
     }
 
+    // Step 2 – headless browser (handles JavaScript-heavy pages and soft blocks).
+    // Run this whenever plain fetch failed OR yielded too little text.
     if (text.length < 300) {
       try {
         const renderedText = await renderJobPage(url);
@@ -313,13 +331,16 @@ export async function POST(request: Request) {
           text = renderedText;
         }
       } catch {
-        // If browser rendering also fails, fall through to the existing parse error.
+        // Swallow — if both methods fail, we surface a clear error below.
       }
     }
 
     if (!text) {
       return NextResponse.json(
-        { error: "Could not parse readable job description text from this page." },
+        {
+          error:
+            "Could not extract text from this page. It may require a login or block automated access. Try pasting the job description text directly instead.",
+        },
         { status: 422 }
       );
     }

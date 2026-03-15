@@ -11,15 +11,20 @@ export function getLocalBrowserExecutable() {
     "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
   ].filter(Boolean) as string[];
 
-  return candidates.find((path) => existsSync(path)) || null;
+  return candidates.find((p) => existsSync(p)) || null;
 }
 
 export async function launchHeadlessBrowser() {
   const localBrowser = !process.env.VERCEL ? getLocalBrowserExecutable() : null;
 
+  if (!localBrowser) {
+    // Disable WebGL / graphics stack — not needed for PDF rendering.
+    chromium.setGraphicsMode = false;
+  }
+
   return puppeteer.launch({
     args: localBrowser ? ["--no-sandbox", "--disable-setuid-sandbox"] : chromium.args,
     executablePath: localBrowser || (await chromium.executablePath()),
-    headless: localBrowser ? true : "shell",
+    headless: true,
   });
 }
