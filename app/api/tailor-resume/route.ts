@@ -8,9 +8,14 @@ import {
   modifyDocx,
   parseDocx,
 } from "@/lib/docx-parser";
-import { extractKeywords, filterHighValueKeywords, scoreKeywordMatch } from "@/lib/keyword-scorer";
+import {
+  extractKeywords,
+  filterHighValueKeywords,
+  rankKeywordsForResume,
+  scoreKeywordMatch,
+} from "@/lib/keyword-scorer";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
-import type { Modification, TailoringResult } from "@/types";
+import type { Modification, RankedKeyword, RewritePlan, TailoringResult } from "@/types";
 
 type ClaudeModification = Modification & {
   keyword: string;
@@ -19,6 +24,11 @@ type ClaudeModification = Modification & {
 };
 
 type ClaudeResponse = {
+  plan: {
+    summary: string;
+    targetAreas: string[];
+    roleAlignment: string;
+  };
   modifications: ClaudeModification[];
 };
 
@@ -77,8 +87,21 @@ async function applyResumeModifications(params: {
 const modificationsSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["modifications"],
+  required: ["plan", "modifications"],
   properties: {
+    plan: {
+      type: "object",
+      additionalProperties: false,
+      required: ["summary", "targetAreas", "roleAlignment"],
+      properties: {
+        summary: { type: "string" },
+        targetAreas: {
+          type: "array",
+          items: { type: "string" },
+        },
+        roleAlignment: { type: "string" },
+      },
+    },
     modifications: {
       type: "array",
       items: {
@@ -137,9 +160,18 @@ HARD CONSTRAINTS
 • NO vague business phrases: "communication", "problem solving", "cross-functional", "stakeholder" etc.
 • Net words added across ALL modifications combined: ≤ 60 words total
 • Each modification individually: ≤ 15 words added
+• Always start with a rewrite plan that targets: Summary, Skills, and the 1-2 most relevant roles for this job
+• Rank the missing keywords by ATS impact and focus the modifications on the highest-value ones first
+• If a truthful title alignment is possible at Acmesia Consultants LLP, mention it in roleAlignment and apply it only if the new title is genuinely supported by the work
+• Prefer 6-10 high-impact modifications across summary, skills, and top role bullets instead of tiny scattered changes
 
 Return ONLY valid JSON, no markdown, no explanation:
 {
+  "plan": {
+    "summary": "one paragraph describing the rewrite strategy",
+    "targetAreas": ["Summary", "Technical Skills", "Acmesia Consultants LLP bullets"],
+    "roleAlignment": "brief note on whether a truthful title alignment change was used"
+  },
   "modifications": [
     {
       "findText": "exact verbatim text from resume (must be unique, 10+ chars)",
@@ -182,6 +214,46 @@ function extractSkillsSection(resumeText: string): string {
   return skillsLines.join("\n");
 }
 
+function buildSkillsFallbackModifications(
+  resumeText: string,
+  missingKeywords: string[]
+): ClaudeModification[] {
+  if (missingKeywords.length === 0) {
+    return [];
+  }
+
+  const lines = resumeText.split("\n").map((line) => line.trim()).filter(Boolean);
+  const skillLine =
+    lines.find((line) => /^(languages|frameworks|databases|tools|other technologies|technologies)\s*:/i.test(line)) ||
+    lines.find((line) => line.includes(":") && (line.match(/,/g) ?? []).length >= 4);
+
+  if (!skillLine) {
+    return [];
+  }
+
+  const existingLower = skillLine.toLowerCase();
+  const keywordsToAdd = missingKeywords
+    .filter((keyword) => !existingLower.includes(keyword.toLowerCase()))
+    .slice(0, 4);
+
+  if (keywordsToAdd.length === 0) {
+    return [];
+  }
+
+  const endsWithPeriod = skillLine.endsWith(".");
+  const baseText = endsWithPeriod ? skillLine.slice(0, -1) : skillLine;
+
+  return [
+    {
+      findText: skillLine,
+      replaceText: `${baseText}, ${keywordsToAdd.join(", ")}${endsWithPeriod ? "." : ""}`,
+      keyword: keywordsToAdd.join(", "),
+      section: "TECHNICAL SKILLS",
+      reason: "Safe fallback: add the highest-value missing technical keywords to the existing skills line.",
+    },
+  ];
+}
+
 function selectCompactModifications(
   modifications: ClaudeModification[],
   maxMods = MAX_MODIFICATIONS,
@@ -198,23 +270,23 @@ function selectCompactModifications(
       const findTrimmed = item.findText.trimEnd();
       const replaceTrimmed = item.replaceText.trimEnd();
 
+      // Comma-dense lines (4+ commas = 5+ items) are Skills section lines.
+      // They are allowed to have keywords appended even when they end with a period.
+      const commaCount = (findTrimmed.match(/,/g) ?? []).length;
+      const isSkillsListLine = commaCount >= 4;
+
       // ── Guard 1: clause-appending after finished phrases ────────────────────
-      // Reject if findText ends a sentence/metric (period, %, digit, or closing paren).
+      // Reject if findText ends a sentence/metric (period, %, digit, or closing paren)
+      // AND the line is not a Skills section list (which legitimately ends in ".").
       const isFinishedPhrase = /[.%)]$|\d+$/.test(findTrimmed);
-      if (isFinishedPhrase && addedWords > 2) return false;
+      if (isFinishedPhrase && addedWords > 2 && !isSkillsListLine) return false;
 
       // ── Guard 2: pure-append onto bullet-point tech stacks ───────────────────
       // If replaceText is literally findText + a suffix, the model is appending,
-      // not substituting. This is fine for Skills section lines (dense comma lists
-      // with 4+ commas = 5+ items), but NOT for bullet-point tech stacks.
-      // Patterns like "..., and X" or "...) with X" on short/medium lists are blocked.
+      // not substituting. Fine for Skills section lines (4+ commas); blocked for
+      // bullet-point tech stacks (fewer commas) like "..., and distributed systems".
       const isPureAppend = replaceTrimmed.startsWith(findTrimmed);
-      if (isPureAppend && addedWords > 2) {
-        const commaCount = (findTrimmed.match(/,/g) ?? []).length;
-        // Skills section lines have 4+ commas (5+ items); bullet tech stacks have fewer.
-        const isSkillsListLine = commaCount >= 4;
-        if (!isSkillsListLine) return false;
-      }
+      if (isPureAppend && addedWords > 2 && !isSkillsListLine) return false;
 
       // Allow keyword swaps (addedWords can be negative) and additions up to the per-mod limit
       return (
@@ -354,19 +426,35 @@ function parseModelJson<T>(text: string): T {
 async function requestModificationsFromClaude(params: {
   resumeText: string;
   jobDescription: string;
-  missingKeywords: string[];
+  rankedKeywords: RankedKeyword[];
   jobTitle: string;
   jobCompany: string;
   aggressive?: boolean;
 }) {
-  if (params.missingKeywords.length === 0) {
-    return [] as ClaudeModification[];
+  const missingRankedKeywords = params.rankedKeywords.filter((item) => !item.presentInResume);
+
+  if (missingRankedKeywords.length === 0) {
+    return {
+      plan: {
+        summary: "The resume already covers the ranked technical keywords extracted from the job description.",
+        targetAreas: ["Technical Skills"],
+        roleAlignment: "No truthful title alignment change was needed.",
+      } satisfies RewritePlan,
+      modifications: [] as ClaudeModification[],
+    };
   }
 
   const modLimit = params.aggressive ? MAX_MODIFICATIONS_AGGRESSIVE : MAX_MODIFICATIONS;
   const wordLimit = params.aggressive ? MAX_TOTAL_ADDED_WORDS_AGGRESSIVE : MAX_TOTAL_ADDED_WORDS;
 
   const skillsSection = extractSkillsSection(params.resumeText);
+  const rankedKeywordBlock = missingRankedKeywords
+    .slice(0, 12)
+    .map(
+      (item, index) =>
+        `${index + 1}. ${item.keyword} | importance ${item.importance}/10 | target ${item.targetSection} | ${item.reason}`
+    )
+    .join("\n");
 
   const userMessage = `RESUME TEXT:
 ${params.resumeText}
@@ -377,16 +465,16 @@ ${skillsSection || "(not found)"}
 JOB DESCRIPTION:
 ${params.jobDescription}
 
-MISSING KEYWORDS TO ADD (prioritize these, cover as many as possible):
-${params.missingKeywords.join(", ")}
+RANKED MISSING KEYWORDS TO ADD (highest ATS impact first):
+${rankedKeywordBlock}
 
 Job Title: ${params.jobTitle}
 Company: ${params.jobCompany}
 
 ${
     params.aggressive
-      ? `This is a second optimization pass. The first pass did not improve the score enough. Be more aggressive: target the Skills section directly, add multiple missing keywords per modification, and use keyword substitutions wherever natural. Return up to ${modLimit} modifications.`
-      : `Return up to ${modLimit} modifications that maximize keyword coverage for this role.`
+      ? `This is a second optimization pass. The first pass did not improve the score enough. Be more aggressive: rewrite Summary, Technical Skills, and the 1-2 most relevant roles together; cluster related keywords into fewer stronger edits; and return up to ${modLimit} modifications.`
+      : `Return up to ${modLimit} modifications that maximize keyword coverage for this role by rewriting Summary, Technical Skills, and the most relevant role bullets together.`
   }`;
 
   let lastError: Error | null = null;
@@ -401,7 +489,7 @@ ${
       );
       const parsed = parseModelJson<ClaudeResponse>(rawJson);
 
-      if (!Array.isArray(parsed.modifications)) {
+      if (!Array.isArray(parsed.modifications) || !parsed.plan) {
         throw new Error("The model returned an invalid modifications payload.");
       }
 
@@ -439,7 +527,14 @@ ${
           !isHeaderText(item.findText)
       );
 
-      return selectCompactModifications(validModifications, modLimit, wordLimit);
+      return {
+        plan: {
+          summary: parsed.plan.summary?.trim() || "Rewrite the strongest sections to cover the highest-impact technical keywords.",
+          targetAreas: Array.isArray(parsed.plan.targetAreas) ? parsed.plan.targetAreas.slice(0, 4) : ["Summary", "Technical Skills"],
+          roleAlignment: parsed.plan.roleAlignment?.trim() || "No truthful title alignment change was recommended.",
+        } satisfies RewritePlan,
+        modifications: selectCompactModifications(validModifications, modLimit, wordLimit),
+      };
     } catch (error) {
       lastError = error instanceof Error ? error : new Error("The model returned invalid JSON.");
     }
@@ -563,25 +658,38 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    const rankedKeywords = rankKeywordsForResume(cleanedJobDescription, parsedResume.text, keywordList);
     const originalScore = scoreKeywordMatch(parsedResume.text, keywordList);
 
-    const missingKeywords = keywordList.filter(
-      (keyword) => !parsedResume.text.toLowerCase().includes(keyword.toLowerCase())
-    );
+    let rewritePlan: RewritePlan = {
+      summary: "Rank the missing technical keywords, then rewrite Summary, Technical Skills, and the strongest role bullets to raise ATS coverage truthfully.",
+      targetAreas: ["Summary", "Technical Skills", "Most relevant role bullets"],
+      roleAlignment: "No truthful title alignment change has been applied yet.",
+    };
 
-    let modifications = await requestModificationsFromClaude({
+    let { plan, modifications } = await requestModificationsFromClaude({
       resumeText: parsedResume.text,
       jobDescription: cleanedJobDescription,
-      missingKeywords,
+      rankedKeywords,
       jobTitle,
       jobCompany,
     });
+    rewritePlan = plan;
+
+    if (modifications.length === 0) {
+      modifications = buildSkillsFallbackModifications(
+        parsedResume.text,
+        rankedKeywords.filter((item) => !item.presentInResume).map((item) => item.keyword)
+      );
+    }
 
     if (modifications.length === 0) {
       const result: TailoringResult = {
         originalScore,
         tailoredScore: originalScore,
         addedKeywords: [],
+        rewritePlan,
+        missingHighImpactKeywords: rankedKeywords.filter((item) => !item.presentInResume).slice(0, 8),
         tailoredDocxBase64: docxToBase64(originalBuffer),
         tailoredPdfBase64: "",
       };
@@ -608,16 +716,24 @@ export async function POST(request: Request) {
     let tailoredScore = scoreKeywordMatch(modifiedResume.text, keywordList);
 
     if (tailoredScore - originalScore < 10) {
-      modifications = await requestModificationsFromClaude({
+      const rerankedKeywords = rankKeywordsForResume(cleanedJobDescription, modifiedResume.text, keywordList);
+      const secondPass = await requestModificationsFromClaude({
         resumeText: modifiedResume.text,
         jobDescription: cleanedJobDescription,
-        missingKeywords: keywordList.filter(
-          (keyword) => !modifiedResume.text.toLowerCase().includes(keyword.toLowerCase())
-        ),
+        rankedKeywords: rerankedKeywords,
         jobTitle,
         jobCompany,
         aggressive: true,
       });
+      rewritePlan = secondPass.plan;
+      modifications = secondPass.modifications;
+
+      if (modifications.length === 0) {
+        modifications = buildSkillsFallbackModifications(
+          modifiedResume.text,
+          rerankedKeywords.filter((item) => !item.presentInResume).map((item) => item.keyword)
+        );
+      }
 
       applied = await applyResumeModifications({
         sourceBuffer: modifiedBuffer,
@@ -631,6 +747,27 @@ export async function POST(request: Request) {
       tailoredScore = scoreKeywordMatch(modifiedResume.text, keywordList);
     }
 
+    if (appliedModifications.length === 0) {
+      const rerankedKeywords = rankKeywordsForResume(cleanedJobDescription, modifiedResume.text, keywordList);
+      const fallbackModifications = buildSkillsFallbackModifications(
+        modifiedResume.text,
+        rerankedKeywords.filter((item) => !item.presentInResume).map((item) => item.keyword)
+      );
+
+      if (fallbackModifications.length > 0) {
+        applied = await applyResumeModifications({
+          sourceBuffer: modifiedBuffer,
+          sourceText: modifiedResume.text,
+          sourceFileName: resume.name,
+          modifications: fallbackModifications,
+        });
+        modifiedBuffer = applied.buffer;
+        modifiedResume = applied.parsed;
+        appliedModifications = applied.appliedModifications;
+        tailoredScore = scoreKeywordMatch(modifiedResume.text, keywordList);
+      }
+    }
+
     const result: TailoringResult = {
       originalScore,
       tailoredScore,
@@ -640,7 +777,15 @@ export async function POST(request: Request) {
         context: item.replaceText.slice(0, 100),
         originalText: item.findText,
         updatedText: item.replaceText,
+        reason: item.reason,
+        targetArea: rewritePlan.targetAreas.find((area) =>
+          item.section.toLowerCase().includes(area.toLowerCase()) || area.toLowerCase().includes(item.section.toLowerCase())
+        ),
       })),
+      rewritePlan,
+      missingHighImpactKeywords: rankKeywordsForResume(cleanedJobDescription, modifiedResume.text, keywordList)
+        .filter((item) => !item.presentInResume)
+        .slice(0, 8),
       tailoredDocxBase64: docxToBase64(modifiedBuffer),
       tailoredPdfBase64: "",
     };
