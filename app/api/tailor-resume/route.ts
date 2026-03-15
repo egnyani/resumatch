@@ -242,6 +242,57 @@ function selectCompactModifications(
     .slice(0, maxMods);
 }
 
+/**
+ * Strips boilerplate from a full job-page paste so the LLM only sees the
+ * actual role content (summary, responsibilities, qualifications).
+ *
+ * Users often copy-paste the entire careers page — this removes:
+ *   • EEO / equal-opportunity statements
+ *   • Accommodations / disability notices
+ *   • Copyright lines, "Report a bug", legal footers
+ *   • "About <Company>" generic marketing paragraphs at the very end
+ *
+ * Strategy: find the first line that signals we've left the JD body and
+ * truncate everything from that point onward. Also hard-caps at 6 000 chars
+ * so extremely long pastes don't blow the token budget.
+ */
+function preprocessJobDescription(raw: string): string {
+  // Patterns that mark the start of non-JD boilerplate sections.
+  // We scan line-by-line and drop everything from the first matching line onward.
+  const boilerplateLineRe = new RegExp(
+    [
+      "equal opportunity",
+      "equal employment",
+      "eeo statement",
+      "disability",
+      "accommodations",
+      "neurodivergent",
+      "sincerely held religious",
+      "pregnancy.related support",
+      "notice regarding automated",
+      "automated employment decision",
+      "new york city",
+      "report a bug",
+      "if you have any trouble",
+      "©\\d{4}",
+      "copyright \\d{4}",
+      "all rights reserved",
+      "meta platforms",
+      "meta is committed to providing",
+    ].join("|"),
+    "i"
+  );
+
+  const lines = raw.split("\n");
+  const cutIndex = lines.findIndex((line) => boilerplateLineRe.test(line));
+  const cleaned = (cutIndex === -1 ? lines : lines.slice(0, cutIndex))
+    .join("\n")
+    .trim();
+
+  // Hard cap to avoid oversized payloads
+  return cleaned.slice(0, 6000);
+}
+
 function getAppOrigin() {
   if (process.env.NEXT_PUBLIC_APP_URL) {
     return process.env.NEXT_PUBLIC_APP_URL;
@@ -471,15 +522,19 @@ export async function POST(request: Request) {
       );
     }
 
-    if (jobDescription.trim().length < 200) {
+    // Strip EEO statements, legal footers, and other non-JD boilerplate so the
+    // user can paste the entire careers page without needing to manually trim it.
+    const cleanedJobDescription = preprocessJobDescription(jobDescription);
+
+    if (cleanedJobDescription.trim().length < 200) {
       return NextResponse.json(
-        { error: "Job description text must be at least 200 characters." },
+        { error: "Job description text must be at least 200 characters. Paste the role summary, responsibilities, and requirements." },
         { status: 400 }
       );
     }
 
     const submittedKeywords = parseJsonKeywords(jobKeywords);
-    const extractedKeywords = extractKeywords(jobDescription);
+    const extractedKeywords = extractKeywords(cleanedJobDescription);
     const keywordList = filterHighValueKeywords([...submittedKeywords, ...extractedKeywords]).slice(0, 40);
 
     if (keywordList.length === 0) {
@@ -507,7 +562,7 @@ export async function POST(request: Request) {
 
     let modifications = await requestModificationsFromClaude({
       resumeText: parsedResume.text,
-      jobDescription,
+      jobDescription: cleanedJobDescription,
       missingKeywords,
       jobTitle,
       jobCompany,
@@ -546,7 +601,7 @@ export async function POST(request: Request) {
     if (tailoredScore - originalScore < 10) {
       modifications = await requestModificationsFromClaude({
         resumeText: modifiedResume.text,
-        jobDescription,
+        jobDescription: cleanedJobDescription,
         missingKeywords: keywordList.filter(
           (keyword) => !modifiedResume.text.toLowerCase().includes(keyword.toLowerCase())
         ),
