@@ -264,6 +264,63 @@ function deriveJobDescriptionFallback(rawText: string, url: string): Omit<JobDes
   };
 }
 
+/**
+ * Sites known to block all automated access (bot-detection, login walls, etc.).
+ * Returns a user-friendly message, or null if the domain is not on the list.
+ */
+function detectBlockedSite(hostname: string): string | null {
+  const blocked: Record<string, string> = {
+    "metacareers.com": "Meta Careers blocks automated scraping. Please copy the job description from the page and paste it below.",
+    "linkedin.com": "LinkedIn requires a login to view job postings and blocks scrapers. Please copy the job description and paste it below.",
+    "glassdoor.com": "Glassdoor blocks automated access. Please copy the job description and paste it below.",
+    "indeed.com": "Indeed blocks automated scraping. Please copy the job description and paste it below.",
+  };
+
+  for (const [domain, message] of Object.entries(blocked)) {
+    if (hostname === domain || hostname.endsWith(`.${domain}`)) {
+      return message;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Returns a human-readable hint when a URL looks like a search/listing page
+ * rather than a single job posting. Returns null if the URL looks fine.
+ */
+function detectListingPage(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+
+  const path = parsed.pathname.toLowerCase();
+  const params = parsed.searchParams;
+
+  // Common search/listing path segments
+  const listingSegments = [
+    "jobsearch", "job-search", "jobs/search", "search",
+    "careers/search", "careers/explore", "careers/results",
+    "openings", "positions", "vacancies",
+  ];
+  if (listingSegments.some((seg) => path.includes(seg))) {
+    return "That looks like a jobs search page. Please open a specific job posting and paste that URL instead.";
+  }
+
+  // Query-parameter patterns that indicate search/filter pages
+  const searchParams = ["q", "query", "keyword", "keywords", "search", "filter", "category", "roles", "offices", "location"];
+  for (const p of searchParams) {
+    if (params.has(p)) {
+      return "That looks like a search results page. Please open a single job posting and paste that URL instead.";
+    }
+  }
+
+  return null;
+}
+
 const FETCH_HEADERS = {
   "User-Agent":
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -307,6 +364,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid URL. Please enter a valid http or https URL." }, { status: 400 });
     }
 
+    const { hostname } = new URL(url);
+
+    const blockedMsg = detectBlockedSite(hostname);
+    if (blockedMsg) {
+      return NextResponse.json({ error: blockedMsg }, { status: 400 });
+    }
+
+    const listingHint = detectListingPage(url);
+    if (listingHint) {
+      return NextResponse.json({ error: listingHint }, { status: 400 });
+    }
+
     let text = "";
 
     // Step 1 – plain fetch (fast, no JS execution).
@@ -339,7 +408,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Could not extract text from this page. It may require a login or block automated access. Try pasting the job description text directly instead.",
+            "Could not extract the job description from this page — it may be heavily JavaScript-rendered, behind a login, or blocking automated access. Try pasting the job description text directly instead.",
         },
         { status: 422 }
       );

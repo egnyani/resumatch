@@ -6,6 +6,10 @@
     "app/api/convert-pdf/route.ts": {
       "maxDuration": 60,
       "includeFiles": "node_modules/@sparticuz/chromium/**"
+    },
+    "app/api/scrape-jd/route.ts": {
+      "maxDuration": 30,
+      "includeFiles": "node_modules/@sparticuz/chromium/**"
     }
   }
 }

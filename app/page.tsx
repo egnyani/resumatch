@@ -228,10 +228,25 @@ export default function HomePage() {
 
   async function fetchJobDescription() {
     if (useTextInput) {
-      if (jobText.trim().length < 200) {
+      const trimmed = jobText.trim();
+
+      // If the user pasted a URL into the text box, switch to URL mode for them.
+      if (/^https?:\/\//i.test(trimmed) && !trimmed.includes("\n")) {
+        setUseTextInput(false);
+        setJobUrl(trimmed);
+        setJobText("");
+        setJobTextHint("");
+        toast({
+          title: "Switched to URL mode",
+          description: "We detected a URL — click Fetch Job to load it.",
+        });
+        return;
+      }
+
+      if (trimmed.length < 200) {
         toast({
           title: "Job description too short",
-          description: "Paste at least 200 characters from the job description to continue.",
+          description: "Paste the full job description text (at least 200 characters), not the URL.",
         });
         return;
       }
@@ -281,12 +296,10 @@ export default function HomePage() {
       const message = error instanceof Error ? error.message : "Could not fetch job description.";
       setUseTextInput(true);
       setJobData(null);
-      setJobText(
-        `Scraping fallback: ${message}\n\nPaste the full job description below. Include the role summary, responsibilities, requirements, and technologies so Resumatch can extract accurate keywords.\n\n`
-      );
-      setJobTextHint("Automatic scraping failed. Paste the full job description below to continue.");
+      setJobText("");
+      setJobTextHint(message);
       toast({
-        title: "Fetch failed",
+        title: "Couldn't fetch job",
         description: message,
       });
     } finally {
@@ -412,15 +425,20 @@ export default function HomePage() {
                   </>
                 ) : (
                   <>
+                    {jobTextHint && (
+                      <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-300">
+                        {jobTextHint}
+                      </div>
+                    )}
                     <textarea
                       value={jobText}
                       onChange={(event) => setJobText(event.target.value)}
                       rows={14}
-                      placeholder="Paste the full job description here..."
+                      placeholder="Paste the full job description here — include the role summary, responsibilities, requirements, and technologies."
                       className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#00ff87]/50 focus:ring-2 focus:ring-[#00ff87]/20"
                     />
-                    <p className={`text-sm leading-6 ${jobTextHint ? "text-amber-300" : "text-slate-500"}`}>
-                      {jobTextHint || "Paste at least 200 characters from the role summary, responsibilities, and requirements."}
+                    <p className="text-sm leading-6 text-slate-500">
+                      Paste at least 200 characters from the role summary, responsibilities, and requirements.
                     </p>
                     <div className="flex items-center justify-between">
                       <button
