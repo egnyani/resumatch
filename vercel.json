@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "app/api/tailor-resume/route.ts": {
+      "maxDuration": 60
+    }
+  }
