@@ -257,34 +257,43 @@ function selectCompactModifications(
  * so extremely long pastes don't blow the token budget.
  */
 function preprocessJobDescription(raw: string): string {
-  // Patterns that mark the start of non-JD boilerplate sections.
-  // We scan line-by-line and drop everything from the first matching line onward.
+  // Only strip lines that are clearly legal/EEO footer boilerplate.
+  // Use VERY specific phrases to avoid cutting into real JD content.
+  // Words like "disability", "accommodations", "new york city" appear in
+  // normal job descriptions too (benefits, location) — do NOT use them.
   const boilerplateLineRe = new RegExp(
     [
-      "equal opportunity",
-      "equal employment",
+      "is an equal opportunity employer",
+      "equal opportunity employer\\b",
       "eeo statement",
-      "disability",
-      "accommodations",
-      "neurodivergent",
-      "sincerely held religious",
+      "sincerely held religious beliefs",
       "pregnancy.related support",
-      "notice regarding automated",
-      "automated employment decision",
-      "new york city",
+      "notice regarding automated employment",
+      "automated employment decision tools",
       "report a bug",
       "if you have any trouble",
-      "©\\d{4}",
-      "copyright \\d{4}",
-      "all rights reserved",
-      "meta platforms",
-      "meta is committed to providing",
+      "©\\s*\\d{4}\\s*(meta|google|amazon|apple|microsoft|linkedin)",
+      "meta is committed to providing reasonable",
+      "we are committed to providing reasonable accommodations",
     ].join("|"),
     "i"
   );
 
   const lines = raw.split("\n");
-  const cutIndex = lines.findIndex((line) => boilerplateLineRe.test(line));
+
+  // Only start looking for boilerplate after we have seen at least 400 chars
+  // of real content, so an early location line can never truncate the JD.
+  let charsSeen = 0;
+  let cutIndex = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    charsSeen += lines[i].length + 1;
+    if (charsSeen >= 400 && boilerplateLineRe.test(lines[i])) {
+      cutIndex = i;
+      break;
+    }
+  }
+
   const cleaned = (cutIndex === -1 ? lines : lines.slice(0, cutIndex))
     .join("\n")
     .trim();
