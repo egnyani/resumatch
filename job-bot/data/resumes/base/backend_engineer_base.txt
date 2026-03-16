@@ -1,0 +1,3 @@
+# Trimmed version of master resume focused on Backend Engineer roles.
+# Copy relevant sections from master_resume.txt and tailor for backend/API work.
+# Emphasize: systems, APIs, databases, scalability, distributed systems.

@@ -1,0 +1,130 @@
+{
+  "profile": {
+    "name": "Gnyani Enugandula",
+    "email": "gnyenug@gmail.com",
+    "phone": "+1 (315) 766-9099",
+    "address_line1": "201 Comstock Ave",
+    "address_line2": "Apt 1R",
+    "city": "Syracuse",
+    "state": "NY",
+    "state_full": "New York",
+    "zip": "13210",
+    "country": "United States",
+    "linkedin": "https://www.linkedin.com/in/gnyani-enugandula-6a0149262/",
+    "github": "https://github.com/egnyani",
+    "portfolio": "https://gnyani.vercel.app/",
+    "authorized_to_work": true,
+    "requires_sponsorship": true,
+    "visa_type": "F-1 OPT",
+    "visa_sponsorship_note": "Currently authorized to work for 2.5 years without sponsorship. Will require sponsorship after that.",
+    "willing_to_relocate": true,
+    "preferred_work_type": "hybrid",
+    "salary_min": 130000,
+    "salary_max": 160000,
+    "earliest_start_date": "2 weeks after offer acceptance",
+    "years_experience": 2,
+    "security_clearance": false,
+    "us_veteran": false,
+    "disability_status": "I don't wish to answer",
+    "race_ethnicity": "I don't wish to answer",
+    "gender": "I don't wish to answer"
+  },
+  "job_preferences": {
+    "target_titles": [
+      "Python backend engineer",
+      "Node.js TypeScript engineer",
+      "React full stack developer",
+      "AWS cloud engineer Python",
+      "Data engineer SQL Python",
+      "Software engineer Go Kubernetes",
+      "Site reliability engineer",
+      "Machine learning engineer LangChain",
+      "DevOps engineer Docker Kubernetes",
+      "Platform engineer Kubernetes",
+      "FastAPI microservices engineer",
+      "Software engineer Redis Kafka"
+    ],
+    "target_locations": ["United States"],
+    "work_arrangement": ["remote", "hybrid", "onsite"],
+    "min_salary": 120000,
+    "max_years_experience_required": 3,
+    "visa_sponsorship_required": true,
+    "relocation_open": true
+  },
+  "scoring": {
+    "min_fit_score_to_apply": 70,
+    "auto_apply_threshold": 85
+  },
+  "submission_policy": {
+    "mode": "prefill_and_wait",
+    "trusted_ats_platforms": ["greenhouse", "lever", "ashby"]
+  },
+  "blacklist": {
+    "companies": [],
+    "keywords": [
+      "unpaid",
+      "commission only",
+      "must be US citizen",
+      "active security clearance",
+      "top secret clearance",
+      "TS/SCI",
+      "10+ years",
+      "10 or more years",
+      "8+ years",
+      "7+ years",
+      "minimum 7 years",
+      "minimum 8 years",
+      "minimum 10 years",
+      "staff engineer",
+      "principal engineer",
+      "distinguished engineer",
+      "director of engineering",
+      "VP of engineering",
+      "must have green card",
+      "no sponsorship"
+    ]
+  },
+  "apify": {
+    "api_token": "",
+    "lever_companies": [
+      "stripe", "vercel", "notion", "figma", "rippling",
+      "scale-ai", "brex", "gusto", "lattice", "mercury",
+      "retool", "clerk", "supabase", "fly", "render"
+    ],
+    "ashby_companies": [
+      "linear", "ramp", "loom", "airplane", "dbt-labs",
+      "modal", "highlight", "resend", "turso", "trigger"
+    ]
+  },
+  "llm": {
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "api_key": ""
+  },
+  "telegram": {
+    "bot_token": "7xxxxxxxxx:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "chat_id": "1xxxxxxxxx"
+  },
+  "accounts": {
+    "simplify": {
+      "email": "gnyenug@gmail.com",
+      "password": ""
+    },
+    "career_portals": {
+      "email": "gnyenug@gmail.com",
+      "password": ""
+    }
+  },
+  "workday": {
+    "enabled": true,
+    "date_format": "MM/DD/YYYY",
+    "pre_submit_hooks": [
+      {
+        "action": "delete_section_entry",
+        "description": "Delete 4th experience entry (extra project Workday auto-adds)",
+        "section_selector": "[data-automation-id='workExperience']",
+        "entry_index": 3
+      }
+    ]
+  }
+}

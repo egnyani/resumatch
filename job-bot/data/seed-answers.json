@@ -1,0 +1,266 @@
+[
+  {
+    "raw_question": "Are you legally authorized to work in the United States?",
+    "normalized_intent": "work_authorization",
+    "approved_answer": "Yes",
+    "answer_type": "yes_no",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "Will you now or in the future require sponsorship for an employment visa?",
+    "normalized_intent": "visa_sponsorship",
+    "approved_answer": "Yes",
+    "answer_type": "yes_no",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "Do you require visa sponsorship to work in the United States?",
+    "normalized_intent": "visa_sponsorship",
+    "approved_answer": "Yes",
+    "answer_type": "yes_no",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "What is your expected salary?",
+    "normalized_intent": "salary_expectation",
+    "approved_answer": "$130,000 - $160,000",
+    "answer_type": "text",
+    "conditions": "software engineering roles",
+    "confidence": 0.9
+  },
+  {
+    "raw_question": "What are your salary expectations?",
+    "normalized_intent": "salary_expectation",
+    "approved_answer": "$130,000 - $160,000",
+    "answer_type": "text",
+    "conditions": "software engineering roles",
+    "confidence": 0.9
+  },
+  {
+    "raw_question": "What is your desired compensation?",
+    "normalized_intent": "salary_expectation",
+    "approved_answer": "$130,000 - $160,000",
+    "answer_type": "text",
+    "conditions": "software engineering roles",
+    "confidence": 0.9
+  },
+  {
+    "raw_question": "Are you open to relocation?",
+    "normalized_intent": "relocation",
+    "approved_answer": "Yes",
+    "answer_type": "yes_no",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "What is your earliest available start date?",
+    "normalized_intent": "start_date",
+    "approved_answer": "2 weeks after offer acceptance",
+    "answer_type": "text",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "When are you available to start?",
+    "normalized_intent": "start_date",
+    "approved_answer": "2 weeks after offer acceptance",
+    "answer_type": "text",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "What is your notice period?",
+    "normalized_intent": "start_date",
+    "approved_answer": "2 weeks",
+    "answer_type": "text",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "What is your highest level of education?",
+    "normalized_intent": "highest_education",
+    "approved_answer": "Master's degree",
+    "answer_type": "select",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "What is your LinkedIn profile URL?",
+    "normalized_intent": "linkedin_profile",
+    "approved_answer": "https://www.linkedin.com/in/gnyani-enugandula-6a0149262/",
+    "answer_type": "text",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "Do you have a GitHub profile?",
+    "normalized_intent": "portfolio",
+    "approved_answer": "https://github.com/egnyani",
+    "answer_type": "text",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "Please provide a link to your portfolio or personal website.",
+    "normalized_intent": "portfolio",
+    "approved_answer": "https://gnyani.vercel.app/",
+    "answer_type": "text",
+    "conditions": "general",
+    "confidence": 0.9
+  },
+  {
+    "raw_question": "What is your portfolio URL?",
+    "normalized_intent": "portfolio",
+    "approved_answer": "https://gnyani.vercel.app/",
+    "answer_type": "text",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "How many years of experience do you have?",
+    "normalized_intent": "years_experience",
+    "approved_answer": "2",
+    "answer_type": "number",
+    "conditions": "general",
+    "confidence": 0.9
+  },
+  {
+    "raw_question": "Are you comfortable working in a hybrid environment?",
+    "normalized_intent": "remote_preference",
+    "approved_answer": "Yes, I am comfortable with remote, hybrid, or onsite arrangements.",
+    "answer_type": "yes_no",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "Do you consent to a background check?",
+    "normalized_intent": "background_check",
+    "approved_answer": "Yes",
+    "answer_type": "yes_no",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "Have you been referred by an employee?",
+    "normalized_intent": "referral",
+    "approved_answer": "No",
+    "answer_type": "yes_no",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "Where did you hear about this position?",
+    "normalized_intent": "referral_source",
+    "approved_answer": "Online job board",
+    "answer_type": "text",
+    "conditions": "general",
+    "confidence": 0.9
+  },
+  {
+    "raw_question": "Are you 18 years of age or older?",
+    "normalized_intent": "age_verification",
+    "approved_answer": "Yes",
+    "answer_type": "yes_no",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "Do you have an active security clearance?",
+    "normalized_intent": "security_clearance",
+    "approved_answer": "No",
+    "answer_type": "yes_no",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "Do you currently hold a security clearance?",
+    "normalized_intent": "security_clearance",
+    "approved_answer": "No",
+    "answer_type": "yes_no",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "Are you a US veteran?",
+    "normalized_intent": "veteran_status",
+    "approved_answer": "No",
+    "answer_type": "yes_no",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "Have you ever served in the US military?",
+    "normalized_intent": "veteran_status",
+    "approved_answer": "No",
+    "answer_type": "yes_no",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "Please identify your veteran status.",
+    "normalized_intent": "veteran_status",
+    "approved_answer": "I am not a protected veteran",
+    "answer_type": "select",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "What is your street address?",
+    "normalized_intent": "address",
+    "approved_answer": "201 Comstock Ave, Apt 1R",
+    "answer_type": "text",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "What is your current address?",
+    "normalized_intent": "address",
+    "approved_answer": "201 Comstock Ave, Apt 1R, Syracuse, NY 13210",
+    "answer_type": "text",
+    "conditions": "general",
+    "confidence": 0.9
+  },
+  {
+    "raw_question": "Will you now or in the future require employer sponsorship to work in the US?",
+    "normalized_intent": "visa_sponsorship",
+    "approved_answer": "Yes, I will need sponsorship in the future. I am currently on F-1 OPT and authorized to work for approximately 2.5 years without sponsorship.",
+    "answer_type": "text",
+    "conditions": "long-form question",
+    "confidence": 0.9
+  },
+  {
+    "raw_question": "Please describe your work authorization status.",
+    "normalized_intent": "work_authorization",
+    "approved_answer": "F-1 OPT. I am authorized to work in the US for approximately 2.5 years without sponsorship. After that period, I will require employer sponsorship.",
+    "answer_type": "text",
+    "conditions": "long-form question",
+    "confidence": 0.9
+  },
+  {
+    "raw_question": "Do you identify as having a disability?",
+    "normalized_intent": "disability_status",
+    "approved_answer": "I don't wish to answer",
+    "answer_type": "select",
+    "conditions": "general",
+    "confidence": 1.0
+  },
+  {
+    "raw_question": "How did you hear about us?",
+    "normalized_intent": "referral_source",
+    "approved_answer": "Online job board",
+    "answer_type": "text",
+    "conditions": "general",
+    "confidence": 0.9
+  },
+  {
+    "raw_question": "Why do you want to work at this company?",
+    "normalized_intent": "cover_letter",
+    "approved_answer": "I am excited about the opportunity to contribute to your engineering team. I am particularly drawn to the technical challenges and the impact of the work. I look forward to bringing my background in Python, TypeScript, and cloud infrastructure to help drive results.",
+    "answer_type": "text",
+    "conditions": "general short cover letter",
+    "confidence": 0.8
+  }
+]

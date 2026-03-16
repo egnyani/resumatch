@@ -1,0 +1,3 @@
+# Trimmed version of master resume focused on Software Engineer roles.
+# Copy relevant sections from master_resume.txt and tailor for general SWE roles.
+# Emphasize: full-stack, product development, collaboration.

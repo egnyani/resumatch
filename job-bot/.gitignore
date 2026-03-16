@@ -1,0 +1,25 @@
+node_modules/
+dist/
+*.js.map
+
+# Database (rebuilt locally)
+data/jobs.db
+db/jobs.db
+db/jobs.db-wal
+db/jobs.db-shm
+db/.fuse_hidden*
+
+# Generated resumes and temp files
+data/resumes/generated/
+data/screenshots/
+
+# Environment secrets — never commit this file
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS junk
+.DS_Store
+Thumbs.db

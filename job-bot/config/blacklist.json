@@ -1,0 +1,35 @@
+{
+  "companies": [],
+  "keywords": [
+    "unpaid",
+    "commission only",
+    "must be US citizen",
+    "active security clearance",
+    "top secret clearance",
+    "TS/SCI",
+    "10+ years",
+    "10 or more years",
+    "8+ years",
+    "7+ years",
+    "minimum 7 years",
+    "minimum 8 years",
+    "minimum 10 years",
+    "staff engineer",
+    "principal engineer",
+    "distinguished engineer",
+    "director of engineering",
+    "VP of engineering",
+    "must have green card",
+    "no sponsorship"
+  ],
+  "title_keywords_to_skip": [
+    "staff",
+    "principal",
+    "distinguished",
+    "director",
+    "VP",
+    "vice president",
+    "head of engineering",
+    "CTO"
+  ]
+}
